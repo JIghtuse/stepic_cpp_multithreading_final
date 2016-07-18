@@ -105,9 +105,9 @@ int main(int argc, char** argv)
     po::options_description desc("Available options");
     desc.add_options()
         ("help", "produce help message")
-        ("directory", po::value<std::string>(), "root directory of server")
-        ("address", po::value<std::string>(), "address to listen on")
-        ("port", po::value<std::string>(), "port number")
+        ("directory,d", po::value<std::string>(), "root directory of server")
+        ("address,h", po::value<std::string>(), "address to listen on")
+        ("port,p", po::value<std::string>(), "port number")
         ;
 
     po::variables_map vm;

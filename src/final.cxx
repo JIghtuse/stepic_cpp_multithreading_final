@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <boost/program_options.hpp>
 #include <iostream>
+#include <regex>
 #include <string>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -35,7 +36,7 @@ struct addrinfo *get_hints(const std::string& port)
 
 int bind_and_listen(const std::string& port)
 {
-    int server_socket;
+    int server_socket = 0;
     auto servinfo = get_hints(port);
     auto p = servinfo;
     for (; p != nullptr; p = p->ai_next) {
@@ -72,7 +73,41 @@ int bind_and_listen(const std::string& port)
     return server_socket;
 }
 
-void launch_server(const std::string& directory, const std::string& address, const std::string& port)
+void handle_client(int client_socket, sockaddr_storage client_address, socklen_t)
+{
+    char s[INET6_ADDRSTRLEN];
+    auto sa = reinterpret_cast<struct sockaddr*>(&client_address);
+    inet_ntop(client_address.ss_family, get_in_addr(sa), s, sizeof(s));
+    std::cerr << "got connection from " << s << '\n';
+
+    const int BUFSIZE = 4096;
+    char buf[BUFSIZE];
+    if (recv(client_socket, buf, BUFSIZE, 0) == -1) {
+        perror("recv");
+    }
+    auto buf_string = std::string(std::move(buf));
+    auto newline = buf_string.find_first_of("\r\n");
+    if (newline != std::string::npos) {
+        buf_string = buf_string.substr(0, newline);
+    }
+
+    std::regex request{ "GET (.*) HTTP.*" };
+    std::smatch sm;
+    std::regex_match(buf_string, sm, request);
+
+    // If not, we should send 400 Bad Request
+    if (sm.size() > 1) {
+        auto request_path = std::string{sm[1]};
+
+        /* TODO: lookup file and send its contents or 404 */
+        if (send(client_socket, request_path.c_str(), request_path.length(), 0) == -1) {
+            perror("send");
+        }
+    }
+    close(client_socket);
+}
+
+void __attribute__((noreturn)) launch_server(const std::string& directory, const std::string& address, const std::string& port)
 {
     // struct sockaddr_info client_info;
     std::cerr << "Launching server in " << directory
@@ -82,7 +117,6 @@ void launch_server(const std::string& directory, const std::string& address, con
     auto server_socket = bind_and_listen(port);
 
     struct sockaddr_storage client_address;
-    char s[INET6_ADDRSTRLEN];
     socklen_t sin_size = sizeof(client_address);
     while (true) {
         auto client_socket = accept(server_socket, reinterpret_cast<struct sockaddr*>(&client_address), &sin_size);
@@ -90,13 +124,9 @@ void launch_server(const std::string& directory, const std::string& address, con
             perror("accept");
             continue;
         }
-        inet_ntop(client_address.ss_family, get_in_addr(reinterpret_cast<struct sockaddr*>(&client_address)), s, sizeof(s));
-        std::cerr << "got connection from " << s << '\n';
 
-        if (send(client_socket, "Hello, world!", 13, 0) == -1) {
-            perror("send");
-        }
-        close(client_socket);
+        /* TODO: process client in worker thread */
+        handle_client(client_socket, client_address, sin_size);
     }
 }
 

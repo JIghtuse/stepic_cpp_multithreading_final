@@ -1,15 +1,15 @@
 #include <arpa/inet.h>
 #include <boost/program_options.hpp>
 #include <iostream>
+#include <netdb.h>
 #include <regex>
 #include <string>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <netdb.h>
+#include <sys/types.h>
 
 namespace po = boost::program_options;
 
-void *get_in_addr(struct sockaddr *sa)
+void* get_in_addr(struct sockaddr* sa)
 {
     if (sa->sa_family == AF_INET) {
         return &(reinterpret_cast<sockaddr_in*>(sa)->sin_addr);
@@ -17,10 +17,10 @@ void *get_in_addr(struct sockaddr *sa)
     return &(reinterpret_cast<sockaddr_in6*>(sa)->sin6_addr);
 }
 
-struct addrinfo *get_hints(const std::string& port)
+struct addrinfo* get_hints(const std::string& port)
 {
     struct addrinfo hints = {};
-    struct addrinfo *servinfo;
+    struct addrinfo* servinfo;
     int rv;
 
     hints.ai_family = AF_INET;
@@ -97,7 +97,7 @@ void handle_client(int client_socket, sockaddr_storage client_address, socklen_t
 
     // If not, we should send 400 Bad Request
     if (sm.size() > 1) {
-        auto request_path = std::string{sm[1]};
+        auto request_path = std::string{ sm[1] };
 
         /* TODO: lookup file and send its contents or 404 */
         if (send(client_socket, request_path.c_str(), request_path.length(), 0) == -1) {

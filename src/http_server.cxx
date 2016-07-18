@@ -38,9 +38,9 @@ HttpServer::HttpServer(const std::string& directory, const std::string& address,
         perror("chroot");
         throw std::runtime_error("cannot chroot to specified directory");
     }
-    if (0 != chdir("/")) {
-        perror("chdir");
-        throw std::runtime_error("cannot chdir to specified directory");
+    if (0 == daemon(0, 0)) {
+        perror("daemon");
+        throw std::runtime_error("cannot daemonize process");
     }
     for (auto i = 0u; i < nthreads; ++i) {
         workers.emplace_back([this] { handle_clients(); });

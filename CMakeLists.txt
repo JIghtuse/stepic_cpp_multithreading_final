@@ -25,6 +25,8 @@ endif()
 find_package(Boost 1.58 COMPONENTS program_options REQUIRED)
 add_executable(final
     src/final.cxx
+    src/http_server.h
+    src/http_server.cxx
     src/thread_safe_socket_queue.h
     src/thread_safe_socket_queue.cxx)
 

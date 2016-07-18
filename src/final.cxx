@@ -1,3 +1,4 @@
+#include "thread_safe_socket_queue.h"
 #include <arpa/inet.h>
 #include <boost/program_options.hpp>
 #include <iostream>
@@ -6,18 +7,47 @@
 #include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <thread>
+#include <vector>
 
 namespace po = boost::program_options;
 
-void* get_in_addr(struct sockaddr* sa)
-{
-    if (sa->sa_family == AF_INET) {
-        return &(reinterpret_cast<sockaddr_in*>(sa)->sin_addr);
-    }
-    return &(reinterpret_cast<sockaddr_in6*>(sa)->sin6_addr);
+namespace {
+const unsigned kNumberOfThreads = 4;
 }
 
-struct addrinfo* get_hints(const std::string& port)
+class HttpServer {
+public:
+    HttpServer(const std::string& directory, const std::string& address, const std::string& port, unsigned nthreads)
+        : m_directory{ std::move(directory) }
+        , m_address{ std::move(address) }
+        , m_port{ std::move(port) }
+    {
+        for (auto i = 0u; i < nthreads; ++i) {
+            workers.emplace_back([this] { handle_clients(); });
+        }
+    }
+    ~HttpServer() {
+        for (auto& worker: workers) {
+            worker.join();
+        }
+    }
+
+    void __attribute__((noreturn)) run();
+
+private:
+    addrinfo* get_hints() const;
+    int bind_and_listen();
+    void __attribute__((noreturn)) handle_clients();
+
+    std::vector<std::thread> workers{};
+    ThreadSafeSocketQueue socketQueue{};
+    std::string m_directory;
+    std::string m_address;
+    std::string m_port;
+};
+
+addrinfo* HttpServer::get_hints() const
 {
     struct addrinfo hints = {};
     struct addrinfo* servinfo;
@@ -27,17 +57,17 @@ struct addrinfo* get_hints(const std::string& port)
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
 
-    if ((rv = getaddrinfo(nullptr, port.c_str(), &hints, &servinfo)) != 0) {
+    if ((rv = getaddrinfo(nullptr, m_port.c_str(), &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return nullptr;
     }
     return servinfo;
 }
 
-int bind_and_listen(const std::string& port)
+int HttpServer::bind_and_listen()
 {
     int server_socket = 0;
-    auto servinfo = get_hints(port);
+    auto servinfo = get_hints();
     auto p = servinfo;
     for (; p != nullptr; p = p->ai_next) {
         if ((server_socket = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
@@ -73,13 +103,8 @@ int bind_and_listen(const std::string& port)
     return server_socket;
 }
 
-void handle_client(int client_socket, sockaddr_storage client_address, socklen_t)
+void handle_client(int client_socket)
 {
-    char s[INET6_ADDRSTRLEN];
-    auto sa = reinterpret_cast<struct sockaddr*>(&client_address);
-    inet_ntop(client_address.ss_family, get_in_addr(sa), s, sizeof(s));
-    std::cerr << "got connection from " << s << '\n';
-
     const int BUFSIZE = 4096;
     char buf[BUFSIZE];
     if (recv(client_socket, buf, BUFSIZE, 0) == -1) {
@@ -107,26 +132,24 @@ void handle_client(int client_socket, sockaddr_storage client_address, socklen_t
     close(client_socket);
 }
 
-void __attribute__((noreturn)) launch_server(const std::string& directory, const std::string& address, const std::string& port)
+void HttpServer::handle_clients()
 {
-    // struct sockaddr_info client_info;
-    std::cerr << "Launching server in " << directory
-              << " on " << address << ":" << port
-              << std::endl;
-
-    auto server_socket = bind_and_listen(port);
-
-    struct sockaddr_storage client_address;
-    socklen_t sin_size = sizeof(client_address);
     while (true) {
-        auto client_socket = accept(server_socket, reinterpret_cast<struct sockaddr*>(&client_address), &sin_size);
+        auto client_socket = socketQueue.wait_and_pop();
+        handle_client(client_socket);
+    }
+}
+
+void HttpServer::run()
+{
+    auto server_socket = bind_and_listen();
+    while (true) {
+        auto client_socket = accept(server_socket, nullptr, nullptr);
         if (client_socket == -1) {
             perror("accept");
             continue;
         }
-
-        /* TODO: process client in worker thread */
-        handle_client(client_socket, client_address, sin_size);
+        socketQueue.push(client_socket);
     }
 }
 
@@ -158,5 +181,6 @@ int main(int argc, char** argv)
     const auto address = vm["address"].as<std::string>();
     const auto port = vm["port"].as<std::string>();
 
-    launch_server(directory, address, port);
+    HttpServer server{ directory, address, port, kNumberOfThreads };
+    server.run();
 }

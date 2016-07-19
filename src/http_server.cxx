@@ -192,6 +192,9 @@ void HttpServer::handle_clients()
 void HttpServer::run()
 {
     auto server_socket = bind_and_listen(m_port.c_str());
+    if (server_socket == 0) {
+        throw std::runtime_error("cannot open listening socket");
+    }
     while (true) {
         auto client_socket = accept(server_socket, nullptr, nullptr);
         if (client_socket == -1) {

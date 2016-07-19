@@ -1,6 +1,5 @@
 #include "http_server.h"
 #include <arpa/inet.h>
-#include <boost/algorithm/string/predicate.hpp>
 #include <fcntl.h>
 #include <linux/tcp.h>
 #include <netdb.h>
@@ -27,6 +26,7 @@ Connection: close
 const char kPage200Headers[] =
 R"(HTTP/1.1 200 OK
 Server: stepic_final
+Content-Type: text/html
 Connection: close
 )";
 
@@ -150,23 +150,16 @@ void handle_client(int client_socket)
     if (!request.empty()) {
         struct stat st;
         auto fd = open(request.c_str(), O_RDONLY);
-        if (fd == -1) {
+        if (request == "/" || fd == -1) {
             sendData(client_socket, kPage404, sizeof(kPage404));
         } else if (fstat(fd, &st) != 0) {
             perror("fstat");
         } else {
-            const char *mime = "text/plain";
-            if (boost::algorithm::ends_with(request, ".html")) {
-                mime = "text/html";
-            }
-
             int enable = 1;
             if (setsockopt(client_socket, IPPROTO_TCP, TCP_CORK, &enable, sizeof(int)) == -1) {
                 perror("setsockopt");
             }
             auto kPage200 = std::string{kPage200Headers};
-            kPage200 += "Content-Type: ";
-            kPage200 += mime;
             kPage200 += "\nContent-Length: " + std::to_string(st.st_size);
             kPage200 += "\n\n";
 

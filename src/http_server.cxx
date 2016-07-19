@@ -24,7 +24,7 @@ Connection: close
 </html>)";
 
 const char kPage200Headers[] =
-R"(HTTP/1.0 200 OK
+R"(HTTP/1.1 200 OK
 Server: stepic_final
 Connection: close
 )";
@@ -167,7 +167,7 @@ void handle_client(int client_socket)
             kPage200 += "Content-type: ";
             kPage200 += mime;
             kPage200 += "\nContent-Length: " + std::to_string(st.st_size);
-            kPage200 + "\n\n";
+            kPage200 += "\n\n";
 
             sendData(client_socket, kPage200.c_str(), kPage200.length());
             sendfile(client_socket, fd, 0, static_cast<size_t>(st.st_size));

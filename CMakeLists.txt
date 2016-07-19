@@ -31,4 +31,5 @@ add_executable(final
     src/thread_safe_socket_queue.cxx)
 
 target_link_libraries(final
+    pthread
     ${Boost_PROGRAM_OPTIONS_LIBRARIES})

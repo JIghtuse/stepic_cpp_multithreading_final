@@ -3,7 +3,6 @@
 #include <fcntl.h>
 #include <linux/tcp.h>
 #include <netdb.h>
-#include <regex>
 #include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -14,9 +13,7 @@ namespace {
 
 const char kPage404[] = 
 R"(HTTP/1.1 404 Not Found
-Server: stepic_final
 Content-Type: text/html
-Content-Length: 56
 Connection: close
 
 <html>
@@ -25,9 +22,9 @@ Connection: close
 
 const char kPage200Headers[] =
 R"(HTTP/1.1 200 OK
-Server: stepic_final
 Content-Type: text/html
 Connection: close
+
 )";
 
 } // namespace
@@ -116,16 +113,16 @@ std::string extractRequestPath(std::string&& buf)
     if (newline != std::string::npos) {
         buf = buf.substr(0, newline);
     }
+    auto space = buf.find(" ");
+    buf = buf.substr(space + 1);
+    space = buf.find(" ");
+    buf = buf.substr(0, space);
 
-    std::regex request{ "GET (.*) HTTP.*" };
-    std::smatch sm;
-    std::regex_match(buf, sm, request);
-
-    if (sm.size() > 1) {
-        return std::string{ sm[1] };
-    } else {
-        return "";
+    auto question = buf.find("?");
+    if (question != std::string::npos) {
+        buf = buf.substr(0, question);
     }
+    return buf;
 }
 
 bool sendData(int client_socket, const char *data, size_t length)
@@ -159,11 +156,7 @@ void handle_client(int client_socket)
             if (setsockopt(client_socket, IPPROTO_TCP, TCP_CORK, &enable, sizeof(int)) == -1) {
                 perror("setsockopt");
             }
-            auto kPage200 = std::string{kPage200Headers};
-            kPage200 += "\nContent-Length: " + std::to_string(st.st_size);
-            kPage200 += "\n\n";
-
-            sendData(client_socket, kPage200.c_str(), kPage200.length());
+            sendData(client_socket, kPage200Headers, sizeof(kPage200Headers));
             sendfile(client_socket, fd, 0, static_cast<size_t>(st.st_size));
 
             enable = 0;

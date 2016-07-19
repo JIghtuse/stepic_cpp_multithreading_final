@@ -16,6 +16,7 @@ namespace {
 const char kPage404[] = 
 R"(HTTP/1.1 404 Not Found
 Server: stepic_final
+Content-Type: text/html
 Content-Length: 56
 Connection: close
 

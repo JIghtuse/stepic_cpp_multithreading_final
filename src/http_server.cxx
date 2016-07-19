@@ -2,6 +2,7 @@
 #include <arpa/inet.h>
 #include <boost/algorithm/string/predicate.hpp>
 #include <fcntl.h>
+#include <linux/tcp.h>
 #include <netdb.h>
 #include <regex>
 #include <sys/sendfile.h>
@@ -158,6 +159,10 @@ void handle_client(int client_socket)
                 mime = "text/html";
             }
 
+            int enable = 1;
+            if (setsockopt(client_socket, IPPROTO_TCP, TCP_CORK, &enable, sizeof(int)) == -1) {
+                perror("setsockopt");
+            }
             auto kPage200 = std::string{kPage200Headers};
             kPage200 += "Content-type: ";
             kPage200 += mime;
@@ -166,6 +171,11 @@ void handle_client(int client_socket)
 
             sendData(client_socket, kPage200.c_str(), kPage200.length());
             sendfile(client_socket, fd, 0, static_cast<size_t>(st.st_size));
+
+            enable = 0;
+            if (setsockopt(client_socket, IPPROTO_TCP, TCP_CORK, &enable, sizeof(int)) == -1) {
+                perror("setsockopt");
+            }
         }
     }
     close(client_socket);

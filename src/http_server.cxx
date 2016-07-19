@@ -164,7 +164,7 @@ void handle_client(int client_socket)
                 perror("setsockopt");
             }
             auto kPage200 = std::string{kPage200Headers};
-            kPage200 += "Content-type: ";
+            kPage200 += "Content-Type: ";
             kPage200 += mime;
             kPage200 += "\nContent-Length: " + std::to_string(st.st_size);
             kPage200 += "\n\n";

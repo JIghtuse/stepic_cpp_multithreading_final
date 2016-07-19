@@ -11,21 +11,11 @@
 
 namespace {
 
-const char kPage404[] = 
-R"(HTTP/1.1 404 Not Found
-Content-Type: text/html
-Connection: close
+const char kPage404[] = "HTTP/1.0 404 Not Found\r\n"
+                        "Content-Type: text/html\r\n\r\n";
 
-<html>
-<body><h2>404 - No such page</h2></body>
-</html>)";
-
-const char kPage200Headers[] =
-R"(HTTP/1.1 200 OK
-Content-Type: text/html
-Connection: close
-
-)";
+const char kPage200Headers[] = "HTTP/1.0 200 OK\r\n"
+                               "Content-Type: text/html\r\n\r\n";
 
 } // namespace
 

@@ -154,6 +154,9 @@ void handle_client(int client_socket)
                 perror("setsockopt");
             }
         }
+        if (close(fd) == -1) {
+            perror("close");
+        }
     }
     close(client_socket);
 }

@@ -146,7 +146,7 @@ void handle_client(int client_socket)
             if (setsockopt(client_socket, IPPROTO_TCP, TCP_CORK, &enable, sizeof(int)) == -1) {
                 perror("setsockopt");
             }
-            sendData(client_socket, kPage200Headers, sizeof(kPage200Headers));
+            sendData(client_socket, kPage200Headers, sizeof(kPage200Headers) - 1);
             sendfile(client_socket, fd, 0, static_cast<size_t>(st.st_size));
 
             enable = 0;
